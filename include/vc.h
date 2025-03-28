@@ -7,7 +7,7 @@
 //             [  DUARTE DUQUE - dduque@ipca.pt  ]
 //++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-
+#ifndef VC_DEBUG
 #define VC_DEBUG
 
 
@@ -49,3 +49,7 @@ int vc_gray_to_binary_global_mean(IVC *src, IVC *dst);
 int vc_binary_dilate(IVC* src, IVC* dst, int kernel);
 
 int vc_detect_brain(IVC *src, IVC* dst);
+
+int vc_rgb_to_gray(IVC *src, IVC* dst);
+
+#endif
