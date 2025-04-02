@@ -13,7 +13,7 @@ extern "C" {
 }
 
 #define VIDEO "video1.mp4"
-#define GRAY_TO_BIN_THRESHOLD 90
+#define GRAY_TO_BIN_THRESHOLD 100
 
 
 void vc_timer(void) {
@@ -38,6 +38,7 @@ void vc_timer(void) {
 }
 
 int main(void) {
+	cv::setNumThreads(20);
 	// V�deo
 	char videofile[20] = "video1.mp4";
 	cv::VideoCapture capture;
@@ -68,6 +69,19 @@ int main(void) {
 	vc_timer();
 
 	cv::Mat frame;
+
+
+	IVC* img = vc_image_new(video.width, video.height, 3, 256);
+	IVC* img_dst = vc_image_new(video.width, video.height, 3, 256);
+	IVC* img_bin = vc_image_new(video.width, video.height, 1, 2);
+	IVC* img_bin_dilate = vc_image_new(video.width, video.height, 1, 2);
+	IVC* img_bin_erosion = vc_image_new(video.width, video.height, 1, 2);
+
+	IVC* img_bin_dilate_2 = vc_image_new(video.width, video.height, 1, 2);
+	IVC* img_bin_erosion_2 = vc_image_new(video.width, video.height, 1, 2);
+
+
+
 	while (key != 'q') {
 		/* Leitura de uma frame do v�deo */
 		capture.read(frame);
@@ -77,6 +91,62 @@ int main(void) {
 
 		/* N�mero da frame a processar */
 		video.nframe = (int)capture.get(cv::CAP_PROP_POS_FRAMES);
+
+
+		memcpy(img->data, frame.data, video.width * video.height * 3);
+
+		vc_rgb_to_gray(img, img_dst);
+		vc_grey_to_binary(img_dst, img_bin, GRAY_TO_BIN_THRESHOLD);
+		vc_binary_dilate(img_bin, img_bin_dilate, 15);
+		vc_binary_erosion(img_bin_dilate, img_bin_erosion, 15);
+		vc_binary_erosion(img_bin_erosion, img_bin_erosion_2, 7);
+		vc_binary_dilate(img_bin_erosion_2, img_bin_dilate_2, 7);
+
+
+
+		
+
+
+
+        // for (int y = 0; y < video.height; y++) {
+        //     for (int x = 0; x < video.width; x++) {
+        //         int pos_bin = y * img_dst->bytesperline + x;
+        //         unsigned char pixel_value = img_dst->data[pos_bin];
+        //         frame.data[pos_bin] = pixel_value;
+        //         frame.data[pos_bin + 1] = pixel_value;
+        //         frame.data[pos_bin + 2] = pixel_value;
+        //     }
+        // }
+
+        // std::stringstream ss;
+        // ss << "./images/" << video.nframe << ".jpg";
+        // std::string filename = ss.str();
+
+        // cv::String cv_filename = filename.c_str();
+
+        // if (!cv::imwrite(cv_filename, frame)) {
+        //     std::cerr << "Error saving image to " << cv_filename << std::endl;
+        //     return -1;
+        // }
+
+
+
+
+        //Transform from binary to rgb
+		for (int y = 0; y < video.height; y++) {
+            for (int x = 0; x < video.width; x++) {
+                int pos_bin = y * img_bin_dilate_2->bytesperline + x;
+                int pos_frame = y * video.width * 3 + x * 3;
+                unsigned char pixel_value = img_bin_dilate_2->data[pos_bin];
+				int pos_rgb = (y * video.width + x) * 3;
+				frame.data[pos_rgb] = pixel_value;
+				frame.data[pos_rgb + 1] = pixel_value;    // Green channel
+				frame.data[pos_rgb + 2] = pixel_value;    // Red channel
+				
+            }
+        }
+
+
 
 
 		/* Exemplo de inser��o texto na frame */
@@ -93,59 +163,9 @@ int main(void) {
 		cv::putText(frame, str, cv::Point(20, 100), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0, 0, 0), 2);
 		cv::putText(frame, str, cv::Point(20, 100), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(255, 255, 255), 1);
 
-        
-		IVC* img = vc_image_new(video.width, video.height, 3, 256);
-		memcpy(img->data, frame.data, video.width * video.height * 3);
-
-		IVC* img_dst = vc_image_new(video.width, video.height, 3, 256);
-		vc_rgb_to_gray(img, img_dst);
-
-        IVC* img_bin = vc_image_new(video.width, video.height, 1, 2);
-        vc_grey_to_binary(img_dst, img_bin, GRAY_TO_BIN_THRESHOLD);
-
-        //Transform from binary to rgb
-		for (int y = 0; y < video.height; y++) {
-            for (int x = 0; x < video.width; x++) {
-                int pos_bin = y * img_bin->bytesperline + x;
-                int pos_frame = y * video.width * 3 + x * 3;
-                unsigned char pixel_value = img_bin->data[pos_bin];
-                frame.data[pos_frame] = pixel_value;
-                frame.data[pos_frame + 1] = pixel_value;
-                frame.data[pos_frame + 2] = pixel_value;
-            }
-        }
-        vc_image_free(img);
-        vc_image_free(img_dst);
-        vc_image_free(img_bin);
-
-        std::stringstream ss;
-        ss << "./images/" << video.nframe << ".jpg";
-        std::string filename = ss.str();
-
-        cv::String cv_filename = filename.c_str();
-
-        if (!cv::imwrite(cv_filename, frame)) {
-            std::cerr << "Error saving image to " << cv_filename << std::endl;
-            return -1;
-        }
     
-        std::cout << "Saved frame " << video.nframe << " as " << cv_filename << std::endl;
-
-
-		// Fa�a o seu c�digo aqui...
-		/*
-		// Cria uma nova imagem IVC
-		IVC *image = vc_image_new(video.width, video.height, 3, 256);
-		// Copia dados de imagem da estrutura cv::Mat para uma estrutura IVC
-		memcpy(image->data, frame.data, video.width * video.height * 3);
-		// Executa uma fun��o da nossa biblioteca vc
-		vc_rgb_get_green(image);
-		// Copia dados de imagem da estrutura IVC para uma estrutura cv::Mat
-		memcpy(frame.data, image->data, video.width * video.height * 3);
-		// Liberta a mem�ria da imagem IVC que havia sido criada
-		vc_image_free(image);
-		*/
-		// +++++++++++++++++++++++++
+    
+        //std::cout << "Saved frame " << video.nframe << " as " << cv_filename << std::endl;
 
 		/* Exibe a frame */
 		cv::imshow("VC - VIDEO", frame);
@@ -153,6 +173,12 @@ int main(void) {
 		/* Sai da aplica��o, se o utilizador premir a tecla 'q' */
 		key = cv::waitKey(1);
 	}
+
+	vc_image_free(img);
+	vc_image_free(img_dst);
+	vc_image_free(img_bin);
+	vc_image_free(img_bin_dilate);
+	vc_image_free(img_bin_erosion);
 
 	/* Para o timer e exibe o tempo decorrido */
 	vc_timer();

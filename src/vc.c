@@ -492,7 +492,11 @@ int vc_grey_to_binary(IVC *src, IVC *dst, int threshold) {
             int pos_src = y * src->bytesperline + x * src->channels;
             int pos_dst = y * dst->bytesperline + x * dst->channels;
 
-            dst->data[pos_dst] = (src->data[pos_src] >= threshold) ? 0 : 255;
+            if (src->data[pos_src] <= threshold) { // Change this if wrong
+				dst->data[pos_dst] = 255;
+			} else {
+				dst->data[pos_dst] = 0;
+			}
         }
     }
 
@@ -525,34 +529,69 @@ int vc_gray_to_binary_global_mean(IVC *src, IVC *dst) {
 }
 
 int vc_binary_dilate(IVC* src, IVC* dst, int kernel) {
-	int offSet = (kernel - 1) / 2;
-	for (int y = 0; y < src->height; y++) {
-		for(int x = 0; x < src->width; x++) {
-			int pos = y * src->bytesperline + x * src->channels;
-			if (src->data[pos] == 1) {
-				dst->data[pos] = 1;
-				continue;
-			}
-			int isWhite = 0;
-			for (int ky = -offSet; ky < offSet; ky++) {
-				for (int kx = -offSet; kx < offSet; kx++) {
-					int kPos = (y + ky) * src->bytesperline + (x + kx) * src->channels;
-					if (src->data[kPos] == 1) {
-						isWhite = 1;
-					}
-				}
-			}
+    int offSet = (kernel - 1) / 2;
+    for (int y = 0; y < src->height; y++) {
+        for(int x = 0; x < src->width; x++) {
+            int pos = y * src->bytesperline + x * src->channels;
+            if (src->data[pos] == 255) {
+                dst->data[pos] = 255;
+                continue;
+            }
+            int isWhite = 0;
+            for (int kY = -offSet; kY < offSet; kY++) {
+                for (int kX = -offSet; kX < offSet; kX++) {
+                    if((x + kX) >= 0 && (x + kX) < src->width && (y + kY) >= 0 && (y + kY) < src->height) { 
+                        int kPos = (y + kY) * src->bytesperline + (x + kX) * src->channels;
+                        if (src->data[kPos] == 255) {
+                            isWhite = 1;
+                        }
+                    }
+                }
+            }
 
-			if (isWhite == 1) {
-				dst->data[pos] = 1;
-			} else {
-				dst->data[pos] = 0;
-			}
-		}
-	}
-	return 0;
+            if (isWhite == 1) {
+                dst->data[pos] = 255;
+            } else {
+                dst->data[pos] = 0;
+            }
+        }
+    }
+    return 0;
+}
 
-};
+int vc_binary_erosion(IVC* src, IVC* dst, int kernel) {
+    int offSet = (kernel - 1) / 2;
+
+    for (int y = 0; y < src->height; y++) {
+        for (int x = 0; x < src->width; x++) {
+            int pos = y * src->bytesperline + x * src->channels;
+
+            int isWhite = 1; 
+            for (int kY = -offSet; kY <= offSet; kY++) {
+                for (int kX = -offSet; kX <= offSet; kX++) {
+                    if ((x + kX) >= 0 && (x + kX) < src->width && (y + kY) >= 0 && (y + kY) < src->height) {
+                        int kPos = (y + kY) * src->bytesperline + (x + kX) * src->channels;
+
+                        if (src->data[kPos] != 255) {
+                            isWhite = 0;
+                            break; 
+                        }
+                    }
+                }
+                if (isWhite == 0) break;
+            }
+
+            if (isWhite == 1) {
+                dst->data[pos] = 255;
+            } else {
+                dst->data[pos] = 0;
+            }
+        }
+    }
+
+    return 0;
+}
+
 
 
 int vc_rgb_to_gray(IVC *src, IVC* dst) {

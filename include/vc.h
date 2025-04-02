@@ -52,4 +52,9 @@ int vc_detect_brain(IVC *src, IVC* dst);
 
 int vc_rgb_to_gray(IVC *src, IVC* dst);
 
+int vc_dilate(IVC *src, IVC* dst, int kernel);
+
+int vc_erosion(IVC *src, IVC* dst, int kernel);
+
+
 #endif
