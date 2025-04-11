@@ -74,11 +74,15 @@ int main(void) {
 	IVC* img = vc_image_new(video.width, video.height, 3, 256);
 	IVC* img_dst = vc_image_new(video.width, video.height, 3, 256);
 	IVC* img_bin = vc_image_new(video.width, video.height, 1, 2);
+	IVC* img_bin_2 = vc_image_new(video.width, video.height, 1, 2);
+	IVC* img_bin_result = vc_image_new(video.width, video.height, 1, 2);
 	IVC* img_bin_dilate = vc_image_new(video.width, video.height, 1, 2);
 	IVC* img_bin_erosion = vc_image_new(video.width, video.height, 1, 2);
 
 	IVC* img_bin_dilate_2 = vc_image_new(video.width, video.height, 1, 2);
 	IVC* img_bin_erosion_2 = vc_image_new(video.width, video.height, 1, 2);
+
+	IVC* img_to_hsv = vc_image_new(video.width, video.height, 3, 256);
 
 
 
@@ -97,14 +101,16 @@ int main(void) {
 
 		vc_rgb_to_gray(img, img_dst);
 		vc_grey_to_binary(img_dst, img_bin, GRAY_TO_BIN_THRESHOLD);
-		vc_binary_dilate(img_bin, img_bin_dilate, 15);
-		vc_binary_erosion(img_bin_dilate, img_bin_erosion, 15);
+		// vc_rgb_to_hsv(img, img_to_hsv);
+		// vc_hsv_binary(img_to_hsv, img_bin_2, 100);
+		// vc_bin_diff(img_bin, img_bin_2, img_bin_result);
+		
+		vc_binary_dilate(img_bin, img_bin_dilate, 7);
+		vc_binary_erosion(img_bin_dilate, img_bin_erosion, 7);
 		vc_binary_erosion(img_bin_erosion, img_bin_erosion_2, 7);
 		vc_binary_dilate(img_bin_erosion_2, img_bin_dilate_2, 7);
 
-
-
-		
+		//memcpy(frame.data, img_to_hsv->data, video.width * video.height * 3);
 
 
 
@@ -135,9 +141,9 @@ int main(void) {
         //Transform from binary to rgb
 		for (int y = 0; y < video.height; y++) {
             for (int x = 0; x < video.width; x++) {
-                int pos_bin = y * img_bin_dilate_2->bytesperline + x;
+                int pos_bin = y * img_bin_erosion_2->bytesperline + x;
                 int pos_frame = y * video.width * 3 + x * 3;
-                unsigned char pixel_value = img_bin_dilate_2->data[pos_bin];
+                unsigned char pixel_value = img_bin_erosion_2->data[pos_bin];
 				int pos_rgb = (y * video.width + x) * 3;
 				frame.data[pos_rgb] = pixel_value;
 				frame.data[pos_rgb + 1] = pixel_value;    // Green channel
@@ -177,8 +183,11 @@ int main(void) {
 	vc_image_free(img);
 	vc_image_free(img_dst);
 	vc_image_free(img_bin);
+	vc_image_free(img_bin_2);
+	vc_image_free(img_bin_result);
 	vc_image_free(img_bin_dilate);
 	vc_image_free(img_bin_erosion);
+	vc_image_free(img_to_hsv);
 
 	/* Para o timer e exibe o tempo decorrido */
 	vc_timer();

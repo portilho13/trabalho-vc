@@ -371,6 +371,36 @@ int vc_write_image(char* filename, IVC* image)
 #define GREEN 1
 #define BLUE 2
 
+int vc_rgb_to_hsv(IVC *src, IVC *dest) {
+    for (int y = 0; y < src->height; y++) {
+        for (int x = 0; x < src->width; x++) {
+            int pos = y * src->bytesperline + x * src->channels;
+
+            unsigned char r = src->data[pos + RED];
+            unsigned char g = src->data[pos + GREEN];
+            unsigned char b = src->data[pos + BLUE];
+
+            int max = calculate_max(r, g, b);
+            int min = calculate_min(r, g, b);
+
+            float max_f = (float)max / 255.0;
+            float min_f = (float)min / 255.0;
+            float r_f = (float)r / 255.0;
+            float g_f = (float)g / 255.0;
+            float b_f = (float)b / 255.0;
+
+            float hue = calculate_hue(r_f, g_f, b_f, max_f, min_f);
+            float sat = (max_f == 0.0) ? 0.0 : (max_f - min_f) / max_f;
+            float val = max_f;
+
+            dest->data[pos] = (unsigned char)roundf(hue / 360.0 * 255.0);
+            dest->data[pos + 1] = (unsigned char)roundf(sat * 255.0);
+            dest->data[pos + 2] = (unsigned char)roundf(val * 255.0);
+        }
+    }
+    return 0;
+}
+
 int calculate_max(unsigned int r, unsigned int g, unsigned int b) {
     return (r > g) ? ((r > b) ? r : b) : ((g > b) ? g : b);
 }
@@ -395,35 +425,6 @@ float calculate_hue(float r, float g, float b, float max, float min) {
     return hue;
 }
 
-int vc_rgb_to_hsv(IVC *src, IVC *dest) {
-    for (int y = 0; y < src->height; y++) {
-        for (int x = 0; x < src->width; x++) {
-            int pos = y * src->bytesperline + x * src->channels;
-
-            unsigned char r = src->data[pos + RED];
-            unsigned char g = src->data[pos + GREEN];
-            unsigned char b = src->data[pos + BLUE];
-
-            int max = calculate_max(r, g, b);
-            int min = calculate_min(r, g, b);
-
-            float max_f = max / 255.0;
-            float min_f = min / 255.0;
-            float r_f = r / 255.0;
-            float g_f = g / 255.0;
-            float b_f = b / 255.0;
-
-            float hue = calculate_hue(r_f, g_f, b_f, max_f, min_f);
-            float sat = (max == 0) ? 0 : (max - min) / (float) max;
-            float val = max_f;
-
-            dest->data[pos] = (unsigned char)(hue / 360.0 * 255.0);
-            dest->data[pos + 1] = (unsigned char)(sat * 255.0);
-            dest->data[pos + 2] = (unsigned char)(val * 255.0);
-        }
-    }
-    return 0;
-}
 
 #define POS_DECLIVE 4
 #define NEG_DECLIVE -4
@@ -529,68 +530,66 @@ int vc_gray_to_binary_global_mean(IVC *src, IVC *dst) {
 }
 
 int vc_binary_dilate(IVC* src, IVC* dst, int kernel) {
-    int offSet = (kernel - 1) / 2;
-    for (int y = 0; y < src->height; y++) {
-        for(int x = 0; x < src->width; x++) {
-            int pos = y * src->bytesperline + x * src->channels;
-            if (src->data[pos] == 255) {
-                dst->data[pos] = 255;
-                continue;
-            }
+    int offset = (kernel - 1) / 2;
+
+    // First, set all dst pixels to 0 (black)
+    memset(dst->data, 0, src->height * src->bytesperline);
+
+    for (int y = offset; y < src->height - offset; y++) {
+        for (int x = offset; x < src->width - offset; x++) {
             int isWhite = 0;
-            for (int kY = -offSet; kY < offSet; kY++) {
-                for (int kX = -offSet; kX < offSet; kX++) {
-                    if((x + kX) >= 0 && (x + kX) < src->width && (y + kY) >= 0 && (y + kY) < src->height) { 
-                        int kPos = (y + kY) * src->bytesperline + (x + kX) * src->channels;
-                        if (src->data[kPos] == 255) {
-                            isWhite = 1;
-                        }
+
+            for (int kY = -offset; kY <= offset; kY++) {
+                for (int kX = -offset; kX <= offset; kX++) {
+                    int kPos = (y + kY) * src->bytesperline + (x + kX) * src->channels;
+
+                    if (src->data[kPos] == 255) {
+                        isWhite = 1;
+                        goto set_pixel; // break both loops
                     }
                 }
             }
 
-            if (isWhite == 1) {
-                dst->data[pos] = 255;
-            } else {
-                dst->data[pos] = 0;
-            }
+        set_pixel:
+            int pos = y * src->bytesperline + x * src->channels;
+            dst->data[pos] = (isWhite ? 255 : 0);
         }
     }
+
     return 0;
 }
+
 
 int vc_binary_erosion(IVC* src, IVC* dst, int kernel) {
-    int offSet = (kernel - 1) / 2;
+    int offset = (kernel - 1) / 2;
 
-    for (int y = 0; y < src->height; y++) {
-        for (int x = 0; x < src->width; x++) {
-            int pos = y * src->bytesperline + x * src->channels;
+    // First, set the entire destination to 0
+    memset(dst->data, 0, src->height * src->bytesperline);
 
-            int isWhite = 1; 
-            for (int kY = -offSet; kY <= offSet; kY++) {
-                for (int kX = -offSet; kX <= offSet; kX++) {
-                    if ((x + kX) >= 0 && (x + kX) < src->width && (y + kY) >= 0 && (y + kY) < src->height) {
-                        int kPos = (y + kY) * src->bytesperline + (x + kX) * src->channels;
+    for (int y = offset; y < src->height - offset; y++) {
+        for (int x = offset; x < src->width - offset; x++) {
+            int isWhite = 1;
 
-                        if (src->data[kPos] != 255) {
-                            isWhite = 0;
-                            break; 
-                        }
+            for (int kY = -offset; kY <= offset; kY++) {
+                for (int kX = -offset; kX <= offset; kX++) {
+                    int kPos = (y + kY) * src->bytesperline + (x + kX) * src->channels;
+
+                    if (src->data[kPos] != 255) {
+                        isWhite = 0;
+                        goto set_pixel; // break both loops
                     }
                 }
-                if (isWhite == 0) break;
             }
 
-            if (isWhite == 1) {
-                dst->data[pos] = 255;
-            } else {
-                dst->data[pos] = 0;
-            }
+        set_pixel:
+            int pos = y * src->bytesperline + x * src->channels;
+            dst->data[pos] = (isWhite ? 255 : 0);
         }
     }
 
     return 0;
 }
+
 
 
 
@@ -613,4 +612,56 @@ int vc_rgb_to_gray(IVC *src, IVC* dst) {
 	}
 	
 	return 0;
+}
+
+int vc_hsv_binary(IVC *src, IVC *dst, int threshold) {
+    if (src->channels != 3 || dst->channels < 1) return -1; // Ensure valid input
+
+    for (int y = 0; y < src->height; y++) {
+        for (int x = 0; x < src->width; x++) {
+            int pos_src = y * src->bytesperline + x * src->channels;
+            int pos_dst = y * dst->bytesperline + x * dst->channels;
+
+            unsigned char h = src->data[pos_src];   
+            unsigned char s = src->data[pos_src + 1];
+            unsigned char v = src->data[pos_src + 2];
+
+            // Apply threshold for yellow detection
+            unsigned char value = (h >= threshold) ? 0 : 255;
+            
+            dst->data[pos_dst] = value;
+            if (dst->channels == 3) {
+                dst->data[pos_dst + 1] = value;
+                dst->data[pos_dst + 2] = value;
+            }
+        }
+    }
+    return 0;
+}
+
+int vc_bin_diff(IVC* src1, IVC* src2, IVC* dst) {
+    // Check for null pointers
+    if (!src1 || !src2 || !dst) return -1;
+
+    // Check for matching dimensions
+    if (src1->width != src2->width || src1->height != src2->height || 
+        src1->channels != src2->channels || dst->width != src1->width || 
+        dst->height != src1->height || dst->channels != src1->channels) {
+        return -1;
+    }
+
+    for (int y = 0; y < src1->height; y++) {
+        for (int x = 0; x < src1->width; x++) {
+            int pos = y * src1->bytesperline + x * src1->channels;
+
+            // Binary Difference Operation: XOR-like behavior
+            if ((src1->data[pos] == 255 && src2->data[pos] == 0) ||
+                (src1->data[pos] == 0 && src2->data[pos] == 255)) {
+                dst->data[pos] = 255;
+            } else {
+                dst->data[pos] = 0;
+            }
+        }
+    }
+    return 0;
 }

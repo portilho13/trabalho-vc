@@ -37,6 +37,12 @@ IVC* vc_image_free(IVC* image);
 IVC* vc_read_image(char* filename);
 int vc_write_image(char* filename, IVC* image);
 
+float calculate_hue(float r, float g, float b, float max, float min);
+
+int calculate_min(unsigned int r, unsigned int g, unsigned int b);
+
+int calculate_max(unsigned int r, unsigned int g, unsigned int b);
+
 int vc_rgb_to_hsv(IVC *src, IVC *dest);
 
 
@@ -55,6 +61,10 @@ int vc_rgb_to_gray(IVC *src, IVC* dst);
 int vc_dilate(IVC *src, IVC* dst, int kernel);
 
 int vc_erosion(IVC *src, IVC* dst, int kernel);
+
+int vc_hsv_binary(IVC *src, IVC* dst, int threshold);
+
+int vc_bin_diff(IVC* src1, IVC* src2, IVC* dst);
 
 
 #endif
