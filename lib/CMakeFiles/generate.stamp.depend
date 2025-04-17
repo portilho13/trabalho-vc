@@ -1,0 +1,10 @@
+# CMake generation dependency list for this directory.
+C:/Program Files/CMake/share/cmake-4.0/Modules/FindPackageHandleStandardArgs.cmake
+C:/Program Files/CMake/share/cmake-4.0/Modules/FindPackageMessage.cmake
+C:/Users/laroc/source/repos/projeto-vc/lib/CMakeLists.txt
+C:/opt/opencv/build/OpenCVConfig-version.cmake
+C:/opt/opencv/build/OpenCVConfig.cmake
+C:/opt/opencv/build/x64/vc16/lib/OpenCVConfig.cmake
+C:/opt/opencv/build/x64/vc16/lib/OpenCVModules-debug.cmake
+C:/opt/opencv/build/x64/vc16/lib/OpenCVModules-release.cmake
+C:/opt/opencv/build/x64/vc16/lib/OpenCVModules.cmake
