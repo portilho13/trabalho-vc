@@ -383,3 +383,30 @@ int vc_rgb_to_gray(IVC* src, IVC* dst) {
 
 	return 0;
 }
+
+#define THRESHOLDING 100
+#define RED 0
+#define GREEN 1
+#define BLUE 2
+
+int vc_gray_to_bin(IVC* src, IVC* dst) {
+	for (int y = 0; y < src->height; y++) {
+		for (int x = 0; x < src->width; x++) {
+			int pos_src = y * src->bytesperline + x * src->channels;
+			int pos_dst = y * dst->bytesperline + x * dst->channels;
+
+			if (src->data[pos_src] >= THRESHOLDING) {
+				dst->data[pos_dst + RED] = 0;
+				dst->data[pos_dst + GREEN] = 0;
+				dst->data[pos_dst + BLUE] = 0;
+			}
+			else {
+				dst->data[pos_dst + RED] = 255;
+				dst->data[pos_dst + GREEN] = 255;
+				dst->data[pos_dst + BLUE] = 255;
+			}
+		}
+	}
+
+	return 0;
+}

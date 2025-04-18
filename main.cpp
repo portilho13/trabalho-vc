@@ -119,13 +119,16 @@ int main(void) {
 
 		IVC* image = vc_image_new(video.width, video.height, 3, 256);
 		IVC* image_gray = vc_image_new(video.width, video.height, 3, 256);
+		IVC* image_bin = vc_image_new(video.width, video.height, 3, 256);
 
 		// Copia dados de imagem da estrutura cv::Mat para uma estrutura IVC
 		memcpy(image->data, frame.data, video.width* video.height * 3);
 
 		vc_rgb_to_gray(image, image_gray);
 
-		memcpy(frame.data, image_gray->data, video.width* video.height * 3);
+		vc_gray_to_bin(image_gray, image_bin);
+
+		memcpy(frame.data, image_bin->data, video.width* video.height * 3);
 
 		/* Exibe a frame */
 		cv::imshow("VC - VIDEO", frame);
@@ -133,6 +136,7 @@ int main(void) {
 		/* Sai da aplica��o, se o utilizador premir a tecla 'q' */
 		key = cv::waitKey(1);
 	}
+
 
 	/* Para o timer e exibe o tempo decorrido */
 	vc_timer();
