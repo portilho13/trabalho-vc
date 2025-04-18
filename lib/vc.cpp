@@ -441,3 +441,31 @@ int vc_binary_dilate(IVC* src, IVC* dst, int kernel) {
 
 	return 0;
 }
+
+int vc_binary_erode(IVC* src, IVC* dst, int kernel) {
+
+	// First, set all dst pixels to 0 (black)
+	memset(dst->data, 0, src->height * src->bytesperline);
+
+	for (int y = kernel; y < src->height - kernel; y++) {
+		for (int x = kernel; x < src->width - kernel; x++) {
+			int isWhite = 1;
+
+			for (int kY = y - kernel; kY <= y + kernel; kY++) {
+				for (int kX = x - kernel; kX <= x + kernel; kX++) {
+					int kPos = kY * src->bytesperline + kX * src->channels;
+
+					if (src->data[kPos] == 0) {
+						isWhite = 0;
+					}
+				}
+			}
+			int pos = y * src->bytesperline + x * src->channels;
+			dst->data[pos + RED] = (isWhite ? 255 : 0);
+			dst->data[pos + GREEN] = (isWhite ? 255 : 0);
+			dst->data[pos + BLUE] = (isWhite ? 255 : 0);
+		}
+	}
+
+	return 0;
+}

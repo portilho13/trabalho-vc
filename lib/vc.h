@@ -42,3 +42,5 @@ int vc_rgb_to_gray(IVC* src, IVC *dst);
 int vc_gray_to_bin(IVC* src, IVC* dst);
 
 int vc_binary_dilate(IVC* src, IVC* dst, int kernel);
+
+int vc_binary_erode(IVC* src, IVC* dst, int kernel);
