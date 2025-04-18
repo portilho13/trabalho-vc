@@ -120,6 +120,7 @@ int main(void) {
 		IVC* image = vc_image_new(video.width, video.height, 3, 256);
 		IVC* image_gray = vc_image_new(video.width, video.height, 3, 256);
 		IVC* image_bin = vc_image_new(video.width, video.height, 3, 256);
+		IVC* image_dilate = vc_image_new(video.width, video.height, 3, 256);
 
 		// Copia dados de imagem da estrutura cv::Mat para uma estrutura IVC
 		memcpy(image->data, frame.data, video.width* video.height * 3);
@@ -128,7 +129,9 @@ int main(void) {
 
 		vc_gray_to_bin(image_gray, image_bin);
 
-		memcpy(frame.data, image_bin->data, video.width* video.height * 3);
+		vc_binary_dilate(image_bin, image_dilate, 9);
+
+		memcpy(frame.data, image_dilate->data, video.width* video.height * 3);
 
 		/* Exibe a frame */
 		cv::imshow("VC - VIDEO", frame);

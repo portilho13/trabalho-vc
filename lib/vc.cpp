@@ -410,3 +410,34 @@ int vc_gray_to_bin(IVC* src, IVC* dst) {
 
 	return 0;
 }
+
+int vc_binary_dilate(IVC* src, IVC* dst, int kernel) {
+
+	// First, set all dst pixels to 0 (black)
+	memset(dst->data, 0, src->height * src->bytesperline);
+
+	for (int y = kernel; y < src->height - kernel; y++) {
+		for (int x = kernel; x < src->width - kernel; x++) {
+			int isWhite = 0;
+
+			for (int kY = y - kernel; kY <= y + kernel; kY++) {
+				for (int kX = x - kernel; kX <= x + kernel; kX++) {
+					int kPos = kY * src->bytesperline + kX * src->channels;
+
+					if (src->data[kPos] == 255) {
+						isWhite = 1;
+						goto set_pixel; // break both loops
+					}
+				}
+			}
+
+		set_pixel:
+			int pos = y * src->bytesperline + x * src->channels;
+			dst->data[pos + RED] = (isWhite ? 255 : 0);
+			dst->data[pos + GREEN] = (isWhite ? 255 : 0);
+			dst->data[pos + BLUE] = (isWhite ? 255 : 0);
+		}
+	}
+
+	return 0;
+}

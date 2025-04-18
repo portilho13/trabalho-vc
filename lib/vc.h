@@ -40,3 +40,5 @@ int vc_write_image(char* filename, IVC* image);
 int vc_rgb_to_gray(IVC* src, IVC *dst);
 
 int vc_gray_to_bin(IVC* src, IVC* dst);
+
+int vc_binary_dilate(IVC* src, IVC* dst, int kernel);
