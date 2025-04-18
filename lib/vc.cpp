@@ -469,3 +469,23 @@ int vc_binary_erode(IVC* src, IVC* dst, int kernel) {
 
 	return 0;
 }
+
+int vc_opening(IVC* src, IVC* dst, int kernel) {
+	IVC* temp = vc_image_new(src->width, src->height, src->channels, src->levels);
+
+	vc_binary_erode(src, temp, kernel);
+	
+	vc_binary_dilate(temp, dst, kernel);
+
+	return 0;
+}
+
+int vc_closing(IVC* src, IVC* dst, int kernel) {
+	IVC* temp = vc_image_new(src->width, src->height, src->channels, src->levels);
+
+	vc_binary_dilate(src, temp, kernel);
+
+	vc_binary_erode(temp, dst, kernel);
+
+	return 0;
+}
