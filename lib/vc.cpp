@@ -362,3 +362,24 @@ int vc_write_image(char* filename, IVC* image)
 
 	return 0;
 }
+
+int vc_rgb_to_gray(IVC* src, IVC* dst) {
+	for (int y = 0; y < src->height; y++) {
+		for (int x = 0; x < src->width; x++) {
+			int pos_src = y * src->bytesperline + x * src->channels;
+			int pos_dst = y * dst->bytesperline + x * dst->channels;
+
+			float r = (float)src->data[pos_src];
+			float g = (float)src->data[pos_src + 1];
+			float b = (float)src->data[pos_src + 2];
+
+			unsigned char gray = (unsigned char)((r * 0.299f) + (g * 0.587f) + (b * 0.114f));
+
+			dst->data[pos_dst] = gray;
+			dst->data[pos_dst + 1] = gray;
+			dst->data[pos_dst + 2] = gray;
+		}
+	}
+
+	return 0;
+}

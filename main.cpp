@@ -1,14 +1,12 @@
 ﻿#include <iostream>
 #include <string>
 #include <chrono>
-#include <opencv2/opencv.hpp>
-#include <opencv2/core.hpp>
-#include <opencv2/highgui.hpp>
-#include <opencv2/videoio.hpp>
-
-extern "C" {
+#include <opencv2\opencv.hpp>
+#include <opencv2\core.hpp>
+#include <opencv2\highgui.hpp>
+#include <opencv2\videoio.hpp>
 #include "lib/vc.h"
-}
+
 
 
 void vc_timer(void) {
@@ -118,6 +116,16 @@ int main(void) {
 		vc_image_free(image);
 		*/
 		// +++++++++++++++++++++++++
+
+		IVC* image = vc_image_new(video.width, video.height, 3, 256);
+		IVC* image_gray = vc_image_new(video.width, video.height, 3, 256);
+
+		// Copia dados de imagem da estrutura cv::Mat para uma estrutura IVC
+		memcpy(image->data, frame.data, video.width* video.height * 3);
+
+		vc_rgb_to_gray(image, image_gray);
+
+		memcpy(frame.data, image_gray->data, video.width* video.height * 3);
 
 		/* Exibe a frame */
 		cv::imshow("VC - VIDEO", frame);
