@@ -1,4 +1,3 @@
-#include "video.h"
 #include <iostream>
 #include <string>
 #include <chrono>
@@ -6,14 +5,8 @@
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/videoio.hpp>
+#include "lib/vc.h"
 
-extern "C" {
-    #include "vc.h"
-    #include "vc.c"
-}
-
-#define VIDEO "video1.mp4"
-#define GRAY_TO_BIN_THRESHOLD 100
 
 
 void vc_timer(void) {
@@ -37,17 +30,32 @@ void vc_timer(void) {
 	}
 }
 
+
 int main(void) {
-	cv::setNumThreads(20);
 	// V�deo
 	char videofile[20] = "video1.mp4";
 	cv::VideoCapture capture;
-    Video video;
+	struct
+	{
+		int width, height;
+		int ntotalframes;
+		int fps;
+		int nframe;
+	} video;
+	// Outros
 	std::string str;
 	int key = 0;
 
+	/* Leitura de v�deo de um ficheiro */
+	/* NOTA IMPORTANTE:
+	O ficheiro video.avi dever� estar localizado no mesmo direct�rio que o ficheiro de c�digo fonte.
+	*/
 	capture.open(videofile);
 
+	/* Em alternativa, abrir captura de v�deo pela Webcam #0 */
+	//capture.open(0, cv::CAP_DSHOW); // Pode-se utilizar apenas capture.open(0);
+
+	/* Verifica se foi poss�vel abrir o ficheiro de v�deo */
 	if (!capture.isOpened())
 	{
 		std::cerr << "Erro ao abrir o ficheiro de v�deo!\n";
@@ -69,23 +77,6 @@ int main(void) {
 	vc_timer();
 
 	cv::Mat frame;
-
-
-	IVC* img = vc_image_new(video.width, video.height, 3, 256);
-	IVC* img_dst = vc_image_new(video.width, video.height, 3, 256);
-	IVC* img_bin = vc_image_new(video.width, video.height, 1, 2);
-	IVC* img_bin_2 = vc_image_new(video.width, video.height, 1, 2);
-	IVC* img_bin_result = vc_image_new(video.width, video.height, 1, 2);
-	IVC* img_bin_dilate = vc_image_new(video.width, video.height, 1, 2);
-	IVC* img_bin_erosion = vc_image_new(video.width, video.height, 1, 2);
-
-	IVC* img_bin_dilate_2 = vc_image_new(video.width, video.height, 1, 2);
-	IVC* img_bin_erosion_2 = vc_image_new(video.width, video.height, 1, 2);
-
-	IVC* img_to_hsv = vc_image_new(video.width, video.height, 3, 256);
-
-
-
 	while (key != 'q') {
 		/* Leitura de uma frame do v�deo */
 		capture.read(frame);
@@ -97,63 +88,41 @@ int main(void) {
 		video.nframe = (int)capture.get(cv::CAP_PROP_POS_FRAMES);
 
 
-		memcpy(img->data, frame.data, video.width * video.height * 3);
 
-		vc_rgb_to_gray(img, img_dst);
-		vc_grey_to_binary(img_dst, img_bin, GRAY_TO_BIN_THRESHOLD);
-		// vc_rgb_to_hsv(img, img_to_hsv);
-		// vc_hsv_binary(img_to_hsv, img_bin_2, 100);
-		// vc_bin_diff(img_bin, img_bin_2, img_bin_result);
-		
-		vc_binary_dilate(img_bin, img_bin_dilate, 7);
-		vc_binary_erosion(img_bin_dilate, img_bin_erosion, 7);
-		vc_binary_erosion(img_bin_erosion, img_bin_erosion_2, 7);
-		vc_binary_dilate(img_bin_erosion_2, img_bin_dilate_2, 7);
+		// Fa�a o seu c�digo aqui...
+		/*
+		// Cria uma nova imagem IVC
+		IVC *image = vc_image_new(video.width, video.height, 3, 256);
+		// Copia dados de imagem da estrutura cv::Mat para uma estrutura IVC
+		memcpy(image->data, frame.data, video.width * video.height * 3);
+		// Executa uma fun��o da nossa biblioteca vc
+		vc_rgb_get_green(image);
+		// Copia dados de imagem da estrutura IVC para uma estrutura cv::Mat
+		memcpy(frame.data, image->data, video.width * video.height * 3);
+		// Liberta a mem�ria da imagem IVC que havia sido criada
+		vc_image_free(image);
+		*/
+		// +++++++++++++++++++++++++
 
-		//memcpy(frame.data, img_to_hsv->data, video.width * video.height * 3);
+		IVC* image = vc_image_new(video.width, video.height, 3, 256);
+		IVC* image_gray = vc_image_new(video.width, video.height, 3, 256);
+		IVC* image_bin = vc_image_new(video.width, video.height, 3, 256);
+		IVC* image_closing = vc_image_new(video.width, video.height, 3, 256);
+		IVC* image_opening = vc_image_new(video.width, video.height, 3, 256);
 
+		// Copia dados de imagem da estrutura cv::Mat para uma estrutura IVC
+		memcpy(image->data, frame.data, video.width* video.height * 3);
 
+		vc_rgb_to_gray(image, image_gray);
 
-        // for (int y = 0; y < video.height; y++) {
-        //     for (int x = 0; x < video.width; x++) {
-        //         int pos_bin = y * img_dst->bytesperline + x;
-        //         unsigned char pixel_value = img_dst->data[pos_bin];
-        //         frame.data[pos_bin] = pixel_value;
-        //         frame.data[pos_bin + 1] = pixel_value;
-        //         frame.data[pos_bin + 2] = pixel_value;
-        //     }
-        // }
+		vc_gray_to_bin(image_gray, image_bin);
 
-        // std::stringstream ss;
-        // ss << "./images/" << video.nframe << ".jpg";
-        // std::string filename = ss.str();
+		vc_closing(image_bin, image_closing, 5);
 
-        // cv::String cv_filename = filename.c_str();
-
-        // if (!cv::imwrite(cv_filename, frame)) {
-        //     std::cerr << "Error saving image to " << cv_filename << std::endl;
-        //     return -1;
-        // }
+		vc_opening(image_closing, image_opening, 5);
 
 
-
-
-        //Transform from binary to rgb
-		for (int y = 0; y < video.height; y++) {
-            for (int x = 0; x < video.width; x++) {
-                int pos_bin = y * img_bin_erosion_2->bytesperline + x;
-                int pos_frame = y * video.width * 3 + x * 3;
-                unsigned char pixel_value = img_bin_erosion_2->data[pos_bin];
-				int pos_rgb = (y * video.width + x) * 3;
-				frame.data[pos_rgb] = pixel_value;
-				frame.data[pos_rgb + 1] = pixel_value;    // Green channel
-				frame.data[pos_rgb + 2] = pixel_value;    // Red channel
-				
-            }
-        }
-
-
-
+		memcpy(frame.data, image_opening->data, video.width* video.height * 3);
 
 		/* Exemplo de inser��o texto na frame */
 		str = std::string("RESOLUCAO: ").append(std::to_string(video.width)).append("x").append(std::to_string(video.height));
@@ -169,10 +138,6 @@ int main(void) {
 		cv::putText(frame, str, cv::Point(20, 100), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(0, 0, 0), 2);
 		cv::putText(frame, str, cv::Point(20, 100), cv::FONT_HERSHEY_SIMPLEX, 1.0, cv::Scalar(255, 255, 255), 1);
 
-    
-    
-        //std::cout << "Saved frame " << video.nframe << " as " << cv_filename << std::endl;
-
 		/* Exibe a frame */
 		cv::imshow("VC - VIDEO", frame);
 
@@ -180,14 +145,6 @@ int main(void) {
 		key = cv::waitKey(1);
 	}
 
-	vc_image_free(img);
-	vc_image_free(img_dst);
-	vc_image_free(img_bin);
-	vc_image_free(img_bin_2);
-	vc_image_free(img_bin_result);
-	vc_image_free(img_bin_dilate);
-	vc_image_free(img_bin_erosion);
-	vc_image_free(img_to_hsv);
 
 	/* Para o timer e exibe o tempo decorrido */
 	vc_timer();
