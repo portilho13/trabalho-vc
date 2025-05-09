@@ -106,6 +106,7 @@ int main(void) {
 
 		IVC* image = vc_image_new(video.width, video.height, 3, 256);
 		IVC* image_gray = vc_image_new(video.width, video.height, 3, 256);
+		IVC* image_hsv = vc_image_new(video.width, video.height, 3, 256);
 		IVC* image_bin = vc_image_new(video.width, video.height, 3, 256);
 		IVC* image_closing = vc_image_new(video.width, video.height, 3, 256);
 		IVC* image_opening = vc_image_new(video.width, video.height, 3, 256);
@@ -121,6 +122,7 @@ int main(void) {
 
 		vc_opening(image_closing, image_opening, 5);
 
+		// Valor a == b = 0 a != b = 1 -> Implementar HSV
 
 		memcpy(frame.data, image_opening->data, video.width* video.height * 3);
 
