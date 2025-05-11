@@ -114,6 +114,8 @@ int main(void) {
 		// Copia dados de imagem da estrutura cv::Mat para uma estrutura IVC
 		memcpy(image->data, frame.data, video.width* video.height * 3);
 
+		vc_rgb_to_hsv(image, image_hsv);
+
 		vc_rgb_to_gray(image, image_gray);
 
 		vc_gray_to_bin(image_gray, image_bin);
@@ -124,7 +126,7 @@ int main(void) {
 
 		// Valor a == b = 0 a != b = 1 -> Implementar HSV
 
-		memcpy(frame.data, image_opening->data, video.width* video.height * 3);
+		memcpy(frame.data, image_hsv->data, video.width* video.height * 3);
 
 		/* Exemplo de inser��o texto na frame */
 		str = std::string("RESOLUCAO: ").append(std::to_string(video.width)).append("x").append(std::to_string(video.height));

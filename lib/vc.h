@@ -48,3 +48,11 @@ int vc_binary_erode(IVC* src, IVC* dst, int kernel);
 int vc_opening(IVC* src, IVC* dst, int kernel);
 
 int vc_closing(IVC* src, IVC* dst, int kernel);
+
+unsigned char max(unsigned char a, unsigned char b, unsigned char c);
+
+int vc_rgb_to_hsv(IVC* src, IVC* dst);
+
+unsigned char min(unsigned char a, unsigned char b, unsigned char c);
+
+float calculate_hue(float r, float g, float b, float max, float min);

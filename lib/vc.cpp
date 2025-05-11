@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <string.h>
+#include <math.h>
 
 #if defined(WIN32)
     #include <malloc.h>
@@ -494,4 +495,57 @@ int vc_closing(IVC* src, IVC* dst, int kernel) {
 	vc_binary_erode(temp, dst, kernel);
 
 	return 0;
+}
+
+
+int vc_rgb_to_hsv(IVC* src, IVC* dst) {
+	if (src == NULL || dst == NULL) return 0;
+	if (src->width != dst->width || src->height != dst->height) return 0;
+	if (src->channels != 3 || dst->channels != 3) return 0;
+
+	for (int y = 0; y < src->height; y++) {
+		for (int x = 0; x < src->width; x++) {
+			int pos_src = y * src->bytesperline + x * src->channels;
+			int pos_dst = y * dst->bytesperline + x * dst->channels;
+
+			// Normalize RGB values to [0,1]
+			float r = src->data[pos_src + RED] / 255.0f;
+			float g = src->data[pos_src + GREEN] / 255.0f;
+			float b = src->data[pos_src + BLUE] / 255.0f;
+
+			float maxVal = fmaxf(fmaxf(r, g), b);
+			float minVal = fminf(fminf(r, g), b);
+			float delta = maxVal - minVal;
+
+			float h, s, v;
+
+			// Calculate Hue
+			if (delta == 0)
+				h = 0;
+			else if (maxVal == r)
+				h = 60 * fmodf(((g - b) / delta), 6);
+			else if (maxVal == g)
+				h = 60 * (((b - r) / delta) + 2);
+			else
+				h = 60 * (((r - g) / delta) + 4);
+
+			if (h < 0)
+				h += 360;
+
+			// Calculate Saturation
+			if (maxVal == 0)
+				s = 0;
+			else
+				s = delta / maxVal;
+
+			// Value is the maximum of RGB components
+			v = maxVal;
+
+			// Scale H, S, V to [0,255] for storage
+			dst->data[pos_dst + 0] = (unsigned char)(h / 360.0f * 255.0f);
+			dst->data[pos_dst + 1] = (unsigned char)(s * 255.0f);
+			dst->data[pos_dst + 2] = (unsigned char)(v * 255.0f);
+		}
+	}
+	return 1;
 }
