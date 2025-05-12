@@ -21,3 +21,6 @@ lib/vclib.vcxproj
 lib/vclib.vcxproj.filters
 out/
 x64/
+ALL_BUILD.vcxproj.user
+VisaoComputador.vcxproj.user
+enc_temp_folder/

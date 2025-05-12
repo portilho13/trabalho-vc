@@ -56,3 +56,12 @@ int vc_rgb_to_hsv(IVC* src, IVC* dst);
 unsigned char min(unsigned char a, unsigned char b, unsigned char c);
 
 float calculate_hue(float r, float g, float b, float max, float min);
+
+int vc_hsv_to_bin(IVC* src, IVC* dst, int h_min, int h_max);
+
+int vc_hsv_to_bin_extended(IVC* src, IVC* dst,
+	int h_min, int h_max,
+	int s_min, int s_max,
+	int v_min, int v_max);
+
+int diff_bin_images(IVC* src1, IVC* src2, IVC* dst);

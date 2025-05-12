@@ -107,7 +107,10 @@ int main(void) {
 		IVC* image = vc_image_new(video.width, video.height, 3, 256);
 		IVC* image_gray = vc_image_new(video.width, video.height, 3, 256);
 		IVC* image_hsv = vc_image_new(video.width, video.height, 3, 256);
+		IVC* image_bin_hsv = vc_image_new(video.width, video.height, 3, 256);
 		IVC* image_bin = vc_image_new(video.width, video.height, 3, 256);
+		IVC* image_bin_result = vc_image_new(video.width, video.height, 3, 256);
+
 		IVC* image_closing = vc_image_new(video.width, video.height, 3, 256);
 		IVC* image_opening = vc_image_new(video.width, video.height, 3, 256);
 
@@ -116,17 +119,26 @@ int main(void) {
 
 		vc_rgb_to_hsv(image, image_hsv);
 
+		//vc_hsv_to_bin(image_hsv, image_bin_hsv, 130, 150);
+		vc_hsv_to_bin_extended(image_hsv, image_bin_hsv, 130, 150, 50, 170, 100, 200);
+
 		vc_rgb_to_gray(image, image_gray);
 
 		vc_gray_to_bin(image_gray, image_bin);
 
-		vc_closing(image_bin, image_closing, 5);
+		diff_bin_images(image_bin, image_bin_hsv, image_bin_result);
+
+
+
+		vc_closing(image_bin_result, image_closing, 5);
 
 		vc_opening(image_closing, image_opening, 5);
 
+		// Implementar HSV Thresholding
+
 		// Valor a == b = 0 a != b = 1 -> Implementar HSV
 
-		memcpy(frame.data, image_hsv->data, video.width* video.height * 3);
+		memcpy(frame.data, image_opening->data, video.width* video.height * 3);
 
 		/* Exemplo de inser��o texto na frame */
 		str = std::string("RESOLUCAO: ").append(std::to_string(video.width)).append("x").append(std::to_string(video.height));

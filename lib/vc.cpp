@@ -538,14 +538,121 @@ int vc_rgb_to_hsv(IVC* src, IVC* dst) {
 			else
 				s = delta / maxVal;
 
-			// Value is the maximum of RGB components
 			v = maxVal;
 
-			// Scale H, S, V to [0,255] for storage
-			dst->data[pos_dst + 0] = (unsigned char)(h / 360.0f * 255.0f);
-			dst->data[pos_dst + 1] = (unsigned char)(s * 255.0f);
-			dst->data[pos_dst + 2] = (unsigned char)(v * 255.0f);
+			dst->data[pos_dst + RED] = (unsigned char)(h / 360.0f * 255.0f);
+			dst->data[pos_dst + GREEN] = (unsigned char)(s * 255.0f);
+			dst->data[pos_dst + BLUE] = (unsigned char)(v * 255.0f);
 		}
 	}
+	return 1;
+}
+
+int vc_hsv_to_bin(IVC* src, IVC* dst, int h_min, int h_max) {
+	if (src == NULL || dst == NULL) return 0;
+	if (src->width != dst->width || src->height != dst->height) return 0;
+	if (src->channels != 3 || dst->channels != 3) return 0;
+
+	for (int y = 0; y < src->height; y++) {
+		for (int x = 0; x < src->width; x++) {
+			int pos_src = y * src->bytesperline + x * src->channels;
+			int pos_dst = y * dst->bytesperline + x * dst->channels;
+
+			unsigned char h = src->data[pos_src + 0]; // Hue in channel 0
+
+			if (h_min <= h_max) {
+				if (h >= h_min && h <= h_max) {
+					dst->data[pos_dst + 0] = 255;
+					dst->data[pos_dst + 1] = 255;
+					dst->data[pos_dst + 2] = 255;
+				}
+				else {
+					dst->data[pos_dst + 0] = 0;
+					dst->data[pos_dst + 1] = 0;
+					dst->data[pos_dst + 2] = 0;
+				}
+			}
+			else {
+				if (h >= h_min || h <= h_max) {
+					dst->data[pos_dst + 0] = 255;
+					dst->data[pos_dst + 1] = 255;
+					dst->data[pos_dst + 2] = 255;
+				}
+				else {
+					dst->data[pos_dst + 0] = 0;
+					dst->data[pos_dst + 1] = 0;
+					dst->data[pos_dst + 2] = 0;
+				}
+			}
+		}
+	}
+
+	return 1;  // Return 1 for success
+}
+
+int vc_hsv_to_bin_extended(IVC* src, IVC* dst,
+	int h_min, int h_max,
+	int s_min, int s_max,
+	int v_min, int v_max) {
+	if (src == NULL || dst == NULL) return 0;
+	if (src->width != dst->width || src->height != dst->height) return 0;
+	if (src->channels != 3 || dst->channels != 3) return 0;
+
+	for (int y = 0; y < src->height; y++) {
+		for (int x = 0; x < src->width; x++) {
+			int pos_src = y * src->bytesperline + x * src->channels;
+			int pos_dst = y * dst->bytesperline + x * dst->channels;
+
+			unsigned char h = src->data[pos_src + 0]; // Hue
+			unsigned char s = src->data[pos_src + 1]; // Saturation
+			unsigned char v = src->data[pos_src + 2]; // Value
+
+			// Check if within all thresholds
+			bool h_in_range = (h_min <= h_max) ?
+				(h >= h_min && h <= h_max) :
+				(h >= h_min || h <= h_max);
+
+			bool s_in_range = (s >= s_min && s <= s_max);
+			bool v_in_range = (v >= v_min && v <= v_max);
+
+			if (h_in_range && s_in_range && v_in_range) {
+				dst->data[pos_dst + 0] = 255;
+				dst->data[pos_dst + 1] = 255;
+				dst->data[pos_dst + 2] = 255;
+			}
+			else {
+				dst->data[pos_dst + 0] = 0;
+				dst->data[pos_dst + 1] = 0;
+				dst->data[pos_dst + 2] = 0;
+			}
+		}
+	}
+
+	return 1;
+}
+
+int diff_bin_images(IVC* src1, IVC* src2, IVC* dst) {
+	if (src1 == NULL || src2 == NULL || dst == NULL) return 0;
+	if (src1->width != src2->width || src1->width != dst->width ||
+		src1->height != src2->height || src1->height != dst->height) return 0;
+	if (src1->channels != src2->channels || src1->channels != dst->channels) return 0;
+
+	for (int y = 0; y < src1->height; y++) {
+		for (int x = 0; x < src1->width; x++) {
+			int pos = y * src1->bytesperline + x * src1->channels;
+
+			if (src1->data[pos] != src2->data[pos]) {
+				dst->data[pos + RED] = 255;
+				dst->data[pos + GREEN] = 255;
+				dst->data[pos + BLUE] = 255;
+			}
+			else {
+				dst->data[pos + RED] = 0;
+				dst->data[pos + GREEN] = 0;
+				dst->data[pos + BLUE] = 0;
+			}
+		}
+	}
+
 	return 1;
 }
