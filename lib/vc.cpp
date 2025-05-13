@@ -14,6 +14,7 @@
 #include <ctype.h>
 #include <string.h>
 #include <math.h>
+#include "stdlib.h"
 
 #if defined(WIN32)
     #include <malloc.h>
@@ -391,91 +392,86 @@ int vc_rgb_to_gray(IVC* src, IVC* dst) {
 	return 0;
 }
 
-#define THRESHOLDING 100
+#define THRESHOLDING 120
 #define RED 0
 #define GREEN 1
 #define BLUE 2
 
 int vc_gray_to_bin(IVC* src, IVC* dst) {
+	if (src->channels != 3 || dst->channels != 1) return -1;
+
 	for (int y = 0; y < src->height; y++) {
 		for (int x = 0; x < src->width; x++) {
 			int pos_src = y * src->bytesperline + x * src->channels;
 			int pos_dst = y * dst->bytesperline + x * dst->channels;
 
-			if (src->data[pos_src] >= THRESHOLDING) {
-				dst->data[pos_dst + RED] = 0;
-				dst->data[pos_dst + GREEN] = 0;
-				dst->data[pos_dst + BLUE] = 0;
-			}
-			else {
-				dst->data[pos_dst + RED] = 255;
-				dst->data[pos_dst + GREEN] = 255;
-				dst->data[pos_dst + BLUE] = 255;
-			}
+			unsigned char b = src->data[pos_src];
+			unsigned char g = src->data[pos_src + 1];
+			unsigned char r = src->data[pos_src + 2];
+
+			unsigned char gray = (unsigned char)(0.299 * r + 0.587 * g + 0.114 * b);
+
+			dst->data[pos_dst] = (gray >= THRESHOLDING) ? 1 : 0;
 		}
 	}
-
 	return 0;
 }
 
 int vc_binary_dilate(IVC* src, IVC* dst, int kernel) {
+	if (!src || !dst || src->channels != 1 || dst->channels != 1) return -1;
 
-	// First, set all dst pixels to 0 (black)
 	memset(dst->data, 0, src->height * src->bytesperline);
 
 	for (int y = kernel; y < src->height - kernel; y++) {
 		for (int x = kernel; x < src->width - kernel; x++) {
 			int isWhite = 0;
 
-			for (int kY = y - kernel; kY <= y + kernel; kY++) {
-				for (int kX = x - kernel; kX <= x + kernel; kX++) {
-					int kPos = kY * src->bytesperline + kX * src->channels;
-
-					if (src->data[kPos] == 255) {
+			for (int kY = -kernel; kY <= kernel && !isWhite; kY++) {
+				for (int kX = -kernel; kX <= kernel; kX++) {
+					int kPos = (y + kY) * src->bytesperline + (x + kX) * src->channels;
+					if (src->data[kPos] == 1) {
 						isWhite = 1;
-						goto set_pixel; // break both loops
+						break;
 					}
 				}
 			}
 
-		set_pixel:
-			int pos = y * src->bytesperline + x * src->channels;
-			dst->data[pos + RED] = (isWhite ? 255 : 0);
-			dst->data[pos + GREEN] = (isWhite ? 255 : 0);
-			dst->data[pos + BLUE] = (isWhite ? 255 : 0);
+			int pos = y * dst->bytesperline + x * dst->channels;
+			dst->data[pos] = isWhite;
 		}
 	}
 
 	return 0;
 }
 
-int vc_binary_erode(IVC* src, IVC* dst, int kernel) {
 
-	// First, set all dst pixels to 0 (black)
+int vc_binary_erode(IVC* src, IVC* dst, int kernel) {
+	if (!src || !dst || src->channels != 1 || dst->channels != 1) return -1;
+
 	memset(dst->data, 0, src->height * src->bytesperline);
 
 	for (int y = kernel; y < src->height - kernel; y++) {
 		for (int x = kernel; x < src->width - kernel; x++) {
 			int isWhite = 1;
 
-			for (int kY = y - kernel; kY <= y + kernel; kY++) {
-				for (int kX = x - kernel; kX <= x + kernel; kX++) {
-					int kPos = kY * src->bytesperline + kX * src->channels;
-
+			for (int kY = -kernel; kY <= kernel && isWhite; kY++) {
+				for (int kX = -kernel; kX <= kernel; kX++) {
+					int kPos = (y + kY) * src->bytesperline + (x + kX) * src->channels;
 					if (src->data[kPos] == 0) {
 						isWhite = 0;
+						break;
 					}
 				}
 			}
-			int pos = y * src->bytesperline + x * src->channels;
-			dst->data[pos + RED] = (isWhite ? 255 : 0);
-			dst->data[pos + GREEN] = (isWhite ? 255 : 0);
-			dst->data[pos + BLUE] = (isWhite ? 255 : 0);
+
+			int pos = y * dst->bytesperline + x * dst->channels;
+			dst->data[pos] = isWhite;
 		}
 	}
 
 	return 0;
 }
+
 
 int vc_opening(IVC* src, IVC* dst, int kernel) {
 	IVC* temp = vc_image_new(src->width, src->height, src->channels, src->levels);
@@ -551,7 +547,7 @@ int vc_rgb_to_hsv(IVC* src, IVC* dst) {
 int vc_hsv_to_bin(IVC* src, IVC* dst, int h_min, int h_max) {
 	if (src == NULL || dst == NULL) return 0;
 	if (src->width != dst->width || src->height != dst->height) return 0;
-	if (src->channels != 3 || dst->channels != 3) return 0;
+	if (src->channels != 3 || dst->channels != 1) return 0;
 
 	for (int y = 0; y < src->height; y++) {
 		for (int x = 0; x < src->width; x++) {
@@ -562,26 +558,18 @@ int vc_hsv_to_bin(IVC* src, IVC* dst, int h_min, int h_max) {
 
 			if (h_min <= h_max) {
 				if (h >= h_min && h <= h_max) {
-					dst->data[pos_dst + 0] = 255;
-					dst->data[pos_dst + 1] = 255;
-					dst->data[pos_dst + 2] = 255;
+					dst->data[pos_dst] = 1;
 				}
 				else {
-					dst->data[pos_dst + 0] = 0;
-					dst->data[pos_dst + 1] = 0;
-					dst->data[pos_dst + 2] = 0;
+					dst->data[pos_dst] = 0;
 				}
 			}
 			else {
 				if (h >= h_min || h <= h_max) {
-					dst->data[pos_dst + 0] = 255;
-					dst->data[pos_dst + 1] = 255;
-					dst->data[pos_dst + 2] = 255;
+					dst->data[pos_dst] = 1;
 				}
 				else {
-					dst->data[pos_dst + 0] = 0;
-					dst->data[pos_dst + 1] = 0;
-					dst->data[pos_dst + 2] = 0;
+					dst->data[pos_dst] = 0;
 				}
 			}
 		}
@@ -596,7 +584,7 @@ int vc_hsv_to_bin_extended(IVC* src, IVC* dst,
 	int v_min, int v_max) {
 	if (src == NULL || dst == NULL) return 0;
 	if (src->width != dst->width || src->height != dst->height) return 0;
-	if (src->channels != 3 || dst->channels != 3) return 0;
+	if (src->channels != 3 || dst->channels != 1) return 0;
 
 	for (int y = 0; y < src->height; y++) {
 		for (int x = 0; x < src->width; x++) {
@@ -607,7 +595,6 @@ int vc_hsv_to_bin_extended(IVC* src, IVC* dst,
 			unsigned char s = src->data[pos_src + 1]; // Saturation
 			unsigned char v = src->data[pos_src + 2]; // Value
 
-			// Check if within all thresholds
 			bool h_in_range = (h_min <= h_max) ?
 				(h >= h_min && h <= h_max) :
 				(h >= h_min || h <= h_max);
@@ -616,14 +603,10 @@ int vc_hsv_to_bin_extended(IVC* src, IVC* dst,
 			bool v_in_range = (v >= v_min && v <= v_max);
 
 			if (h_in_range && s_in_range && v_in_range) {
-				dst->data[pos_dst + 0] = 255;
-				dst->data[pos_dst + 1] = 255;
-				dst->data[pos_dst + 2] = 255;
+				dst->data[pos_dst] = 1;
 			}
 			else {
-				dst->data[pos_dst + 0] = 0;
-				dst->data[pos_dst + 1] = 0;
-				dst->data[pos_dst + 2] = 0;
+				dst->data[pos_dst] = 0;
 			}
 		}
 	}
@@ -642,17 +625,70 @@ int diff_bin_images(IVC* src1, IVC* src2, IVC* dst) {
 			int pos = y * src1->bytesperline + x * src1->channels;
 
 			if (src1->data[pos] != src2->data[pos]) {
-				dst->data[pos + RED] = 255;
-				dst->data[pos + GREEN] = 255;
-				dst->data[pos + BLUE] = 255;
+				dst->data[pos] = 1;
 			}
 			else {
-				dst->data[pos + RED] = 0;
-				dst->data[pos + GREEN] = 0;
-				dst->data[pos + BLUE] = 0;
+				dst->data[pos] = 0;
 			}
 		}
 	}
 
 	return 1;
 }
+unsigned char min4(unsigned char a, unsigned char b, unsigned char c, unsigned char d) {
+	unsigned char min = 255;
+
+	if (a != 0 && a < min) min = a;
+	if (b != 0 && b < min) min = b;
+	if (c != 0 && c < min) min = c;
+	if (d != 0 && d < min) min = d;
+
+	return (min == 255) ? 0 : -1; // All are 0
+}
+
+
+int vc_binary_blob_labelling(IVC* src, IVC* dst) {
+
+	if (!src || src->channels != 1) return -1;
+
+	int width = src->width;
+	int height = src->height;
+	int image_size = width * height;
+
+	int* label_array = (int*)malloc(image_size * sizeof(int));
+	if (!label_array) return -1;
+
+	memset(label_array, 0, image_size * sizeof(int));
+
+	int label = 1;
+
+	int* label_array = (int*)malloc(image_size * sizeof(int));
+
+
+	for (int y = 1; y < height - 1; y++) {
+		for (int x = 1; x < width - 1; x++) {
+			int pos = y * width + x;
+
+			if (src->data[y * src->bytesperline + x] == 1) { // binary 0 or 1
+				int A = label_array[(y - 1) * width + (x - 1)];
+				int B = label_array[(y - 1) * width + x];
+				int C = label_array[(y - 1) * width + (x + 1)];
+				int D = label_array[y * width + (x - 1)];
+
+				if (A == 0 && B == 0 && C == 0 && D == 0) {
+					label_array[pos] = label;
+					label++;
+				}
+				else {
+					label_array[pos] = min4(A, B, C, D);
+				}
+			}
+		}
+	}
+	int object_count = label - 1;
+
+	printf("Object Count: %d\n", object_count);
+
+	return object_count;
+}
+

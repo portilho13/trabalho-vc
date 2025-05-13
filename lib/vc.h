@@ -65,3 +65,5 @@ int vc_hsv_to_bin_extended(IVC* src, IVC* dst,
 	int v_min, int v_max);
 
 int diff_bin_images(IVC* src1, IVC* src2, IVC* dst);
+
+int vc_binary_blob_labelling(IVC* src, IVC* dst);

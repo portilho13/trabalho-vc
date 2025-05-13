@@ -6,6 +6,7 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/videoio.hpp>
 #include "lib/vc.h"
+#include "stdlib.h"
 
 
 
@@ -76,8 +77,21 @@ int main(void) {
 	/* Inicia o timer */
 	vc_timer();
 
+	IVC* image = vc_image_new(video.width, video.height, 3, 256);
+	IVC* image_gray = vc_image_new(video.width, video.height, 3, 256);
+	IVC* image_hsv = vc_image_new(video.width, video.height, 3, 256);
+	IVC* image_bin_hsv = vc_image_new(video.width, video.height, 1, 2);
+	IVC* image_bin = vc_image_new(video.width, video.height, 1, 2);
+	IVC* image_bin_result = vc_image_new(video.width, video.height, 1, 2);
+	IVC* image_closing = vc_image_new(video.width, video.height, 1, 2);
+	IVC* image_opening = vc_image_new(video.width, video.height, 1, 2);
+	IVC* image_blobed = vc_image_new(video.width, video.height, 1, 2);
+
+	IVC* image_labeled = vc_image_new(video.width, video.height, 3, 256);
+
+
 	cv::Mat frame;
-	while (key != 'q') {
+	while (key != 'q') {\
 		/* Leitura de uma frame do v�deo */
 		capture.read(frame);
 
@@ -104,41 +118,53 @@ int main(void) {
 		*/
 		// +++++++++++++++++++++++++
 
-		IVC* image = vc_image_new(video.width, video.height, 3, 256);
-		IVC* image_gray = vc_image_new(video.width, video.height, 3, 256);
-		IVC* image_hsv = vc_image_new(video.width, video.height, 3, 256);
-		IVC* image_bin_hsv = vc_image_new(video.width, video.height, 3, 256);
-		IVC* image_bin = vc_image_new(video.width, video.height, 3, 256);
-		IVC* image_bin_result = vc_image_new(video.width, video.height, 3, 256);
 
-		IVC* image_closing = vc_image_new(video.width, video.height, 3, 256);
-		IVC* image_opening = vc_image_new(video.width, video.height, 3, 256);
 
 		// Copia dados de imagem da estrutura cv::Mat para uma estrutura IVC
 		memcpy(image->data, frame.data, video.width* video.height * 3);
 
 		vc_rgb_to_hsv(image, image_hsv);
 
-		//vc_hsv_to_bin(image_hsv, image_bin_hsv, 130, 150);
+		vc_hsv_to_bin(image_hsv, image_bin_hsv, 130, 150);
 		vc_hsv_to_bin_extended(image_hsv, image_bin_hsv, 130, 150, 50, 170, 100, 200);
 
 		vc_rgb_to_gray(image, image_gray);
 
 		vc_gray_to_bin(image_gray, image_bin);
 
-		diff_bin_images(image_bin, image_bin_hsv, image_bin_result);
+		//diff_bin_images(image_bin, image_bin_hsv, image_bin_result);
 
 
 
-		vc_closing(image_bin_result, image_closing, 5);
+		vc_closing(image_bin, image_closing, 7);
 
-		vc_opening(image_closing, image_opening, 5);
+		vc_opening(image_closing, image_opening, 7);
+
+		vc_binary_blob_labelling(image_opening, image_blobed);
+
 
 		// Implementar HSV Thresholding
 
 		// Valor a == b = 0 a != b = 1 -> Implementar HSV
+		IVC* image_to_display = image_opening;
 
-		memcpy(frame.data, image_opening->data, video.width* video.height * 3);
+		if (image_to_display->channels == 1) {
+			for (int y = 0; y < video.height; y++) {
+				for (int x = 0; x < video.width; x++) {
+					int pos_gray = y * video.width + x;
+					int pos_rgb = (y * video.width + x) * 3;
+
+					unsigned char value = image_to_display->data[pos_gray] ? 0 : 255;
+
+					frame.data[pos_rgb] = value; // R
+					frame.data[pos_rgb + 1] = value; // G
+					frame.data[pos_rgb + 2] = value; // B
+				}
+			}
+		}
+		else {
+			memcpy(frame.data, image_to_display->data, video.width* video.height * 3);
+		}
 
 		/* Exemplo de inser��o texto na frame */
 		str = std::string("RESOLUCAO: ").append(std::to_string(video.width)).append("x").append(std::to_string(video.height));
@@ -160,6 +186,17 @@ int main(void) {
 		/* Sai da aplica��o, se o utilizador premir a tecla 'q' */
 		key = cv::waitKey(1);
 	}
+
+	vc_image_free(image);
+	vc_image_free(image_gray);
+	vc_image_free(image_hsv);
+	vc_image_free(image_bin_hsv);
+	vc_image_free(image_bin);
+	vc_image_free(image_bin_result);
+	vc_image_free(image_closing);
+	vc_image_free(image_opening);
+	vc_image_free(image_labeled);
+
 
 
 	/* Para o timer e exibe o tempo decorrido */
