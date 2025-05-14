@@ -390,13 +390,16 @@ int vc_rgb_to_gray(IVC* src, IVC* dst) {
 	return 0;
 }
 
-#define THRESHOLDING 120
+#define THRESHOLDING 110
 #define RED 0
 #define GREEN 1
 #define BLUE 2
 
 int vc_gray_to_bin(IVC* src, IVC* dst) {
-	if (src->channels != 1 || dst->channels != 1) return -1;
+	if (src->channels != 1 || dst->channels != 3) return -1;
+
+	
+	memset(dst->data, 0, dst->height * dst->bytesperline);
 
 	for (int y = 0; y < src->height; y++) {
 		for (int x = 0; x < src->width; x++) {
@@ -404,71 +407,90 @@ int vc_gray_to_bin(IVC* src, IVC* dst) {
 			int pos_dst = y * dst->bytesperline + x * dst->channels;
 
 			unsigned char gray = src->data[pos_src];
+			
+			if (gray <= THRESHOLDING) {
+				dst->data[pos_dst] = 255;
+				dst->data[pos_dst + GREEN] = 255;
+				dst->data[pos_dst + BLUE] = 255;
+			} else {
+				dst->data[pos_dst] = 0;
+				dst->data[pos_dst + GREEN] = 0;
+				dst->data[pos_dst + BLUE] = 0;
+			}
 
-			dst->data[pos_dst] = (unsigned char)(gray >= THRESHOLDING) ? 1 : 0;
 		}
 	}
 	return 0;
 }
 
 int vc_binary_dilate(IVC* src, IVC* dst, int kernel) {
-	if (!src || !dst || src->channels != 1 || dst->channels != 1) return -1;
+	if (!src || !dst || src->channels != 3 || dst->channels != 3) return -1;
 
 	memset(dst->data, 0, src->height * src->bytesperline);
+	int offset = (kernel - 1) / 2;
 
-	int offSet = (kernel - 1) / 2;
+	for (int y = offset; y < src->height - offset; y++) {
+		for (int x = offset; x < src->width - offset; x++) {
+			int foundWhite = 0;
 
-	for (int y = offSet; y < src->height - offSet; y++) {
-		for (int x = offSet; x < src->width - offSet; x++) {
-			int isWhite = 0;
+			for (int ky = -offset; ky <= offset && !foundWhite; ky++) {
+				for (int kx = -offset; kx <= offset; kx++) {
+					int kpos = (y + ky) * src->bytesperline + (x + kx) * src->channels;
 
-			for (int kY = -offSet; kY <= offSet && !isWhite; kY++) {
-				for (int kX = -offSet; kX <= offSet; kX++) {
-					int kPos = (y + kY) * src->bytesperline + (x + kX) * src->channels;
-					if (src->data[kPos] == 1) {
-						isWhite = 1;
+					if (src->data[kpos] == 255 && src->data[kpos + 1] == 255 && src->data[kpos + 2] == 255) {
+						foundWhite = 1;
 						break;
 					}
 				}
 			}
 
-			int pos = y * dst->bytesperline + x * dst->channels;
-			dst->data[pos] = isWhite;
+			if (foundWhite) {
+				int pos = y * dst->bytesperline + x * dst->channels;
+				dst->data[pos + RED] = 255;
+				dst->data[pos + GREEN] = 255;
+				dst->data[pos + BLUE] = 255;
+			}
 		}
 	}
 
 	return 0;
 }
+
 
 
 int vc_binary_erode(IVC* src, IVC* dst, int kernel) {
-	if (!src || !dst || src->channels != 1 || dst->channels != 1) return -1;
+	if (!src || !dst || src->channels != 3 || dst->channels != 3) return -1;
 
 	memset(dst->data, 0, src->height * src->bytesperline);
+	int offset = (kernel - 1) / 2;
 
-	int offSet = (kernel - 1) / 2;
+	for (int y = offset; y < src->height - offset; y++) {
+		for (int x = offset; x < src->width - offset; x++) {
+			int allWhite = 1;
 
+			for (int ky = -offset; ky <= offset && allWhite; ky++) {
+				for (int kx = -offset; kx <= offset; kx++) {
+					int kpos = (y + ky) * src->bytesperline + (x + kx) * src->channels;
 
-	for (int y = offSet; y < src->height - offSet; y++) {
-		for (int x = offSet; x < src->width - offSet; x++) {
-			int isWhite = 1;
-
-			for (int kY = -offSet; kY <= offSet && isWhite; kY++) {
-				for (int kX = -offSet; kX <= offSet; kX++) {
-					int kPos = (y + kY) * src->bytesperline + (x + kX) * src->channels;
-					if (src->data[kPos] == 0) {
-						isWhite = 0;
+					if (!(src->data[kpos] == 255 && src->data[kpos + 1] == 255 && src->data[kpos + 2] == 255)) {
+						allWhite = 0;
 						break;
 					}
 				}
 			}
 
-			int pos = y * dst->bytesperline + x * dst->channels;
-			dst->data[pos] = isWhite;
+			if (allWhite) {
+				int pos = y * dst->bytesperline + x * dst->channels;
+				dst->data[pos + RED] = 255;
+				dst->data[pos + GREEN] = 255;
+				dst->data[pos + BLUE] = 255;
+			}
 		}
 	}
+
 	return 0;
 }
+
 
 
 int vc_opening(IVC* src, IVC* dst, int kernel) {
@@ -583,7 +605,7 @@ int vc_hsv_to_bin_extended(IVC* src, IVC* dst,
 	int v_min, int v_max) {
 	if (src == NULL || dst == NULL) return 0;
 	if (src->width != dst->width || src->height != dst->height) return 0;
-	if (src->channels != 3 || dst->channels != 1) return 0;
+	if (src->channels != 3 || dst->channels != 3) return 0;
 
 	for (int y = 0; y < src->height; y++) {
 		for (int x = 0; x < src->width; x++) {
@@ -602,10 +624,15 @@ int vc_hsv_to_bin_extended(IVC* src, IVC* dst,
 			bool v_in_range = (v >= v_min && v <= v_max);
 
 			if (h_in_range && s_in_range && v_in_range) {
-				dst->data[pos_dst] = 1;
+				dst->data[pos_dst] = 255;
+				dst->data[pos_dst + GREEN] = 255;
+				dst->data[pos_dst + BLUE] = 255;
+
 			}
 			else {
 				dst->data[pos_dst] = 0;
+				dst->data[pos_dst + GREEN] = 0;
+				dst->data[pos_dst + BLUE] = 0;
 			}
 		}
 	}
@@ -661,7 +688,7 @@ void union_sets(int* parent, int a, int b) {
 int vc_binary_blob_labelling(IVC* bin, IVC* rgb) {
     if (bin == NULL || rgb == NULL) return 0;
     if (bin->width != rgb->width || bin->height != rgb->height) return 0;
-    if (rgb->channels != 3 || bin->channels != 1) return 0;
+    if (rgb->channels != 3 || bin->channels != 3) return 0;
 
     int width = bin->width;
     int height = bin->height;
@@ -674,20 +701,21 @@ int vc_binary_blob_labelling(IVC* bin, IVC* rgb) {
     int label = 1;
     for (int i = 0; i < (size / 2); i++) parent[i] = i;
 
-    // First pass - Assign initial labels and record equivalences (4-connectivity)
+    // First pass - 4-connectivity
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
-            int pos = y * bin->bytesperline + x;
             int idx = y * width + x;
+            int pos = y * bin->bytesperline + x * bin->channels;
 
-            if (bin->data[pos] == 0) continue;
+            // Only consider white pixels as foreground
+            if (bin->data[pos + 0] != 255 || bin->data[pos + 1] != 255 || bin->data[pos + 2] != 255)
+                continue;
 
             int left = (x > 0) ? labels[idx - 1] : 0;
             int up   = (y > 0) ? labels[idx - width] : 0;
 
             if (left == 0 && up == 0) {
-                labels[idx] = label;
-                label++;
+                labels[idx] = label++;
             } else if (left != 0 && up == 0) {
                 labels[idx] = left;
             } else if (left == 0 && up != 0) {
@@ -699,13 +727,13 @@ int vc_binary_blob_labelling(IVC* bin, IVC* rgb) {
         }
     }
 
-    // Second pass - Flatten equivalence table
+    // Second pass - resolve equivalences
     for (int i = 0; i < size; i++) {
         if (labels[i] != 0)
             labels[i] = find(parent, labels[i]);
     }
 
-    // Relabeling to sequential labels
+    // Relabeling to sequential values
     int* new_labels = (int*)calloc(label, sizeof(int));
     int new_label = 1;
 
@@ -743,12 +771,12 @@ int vc_binary_blob_labelling(IVC* bin, IVC* rgb) {
         }
     }
 
-    // Draw boxes on RGB image
+    // Draw boxes on RGB output
     for (int l = 1; l < new_label; l++) {
         int w = max_x[l] - min_x[l];
         int h = max_y[l] - min_y[l];
 
-        if (w < 5 || h < 5) continue; // optional: skip small noise blobs
+        if (w < 5 || h < 5) continue; // optional: skip small blobs
 
         for (int x = min_x[l]; x <= max_x[l]; x++) {
             int top    = min_y[l] * rgb->bytesperline + x * rgb->channels;
