@@ -384,8 +384,6 @@ int vc_rgb_to_gray(IVC* src, IVC* dst) {
 			unsigned char gray = (unsigned char)((r * 0.299f) + (g * 0.587f) + (b * 0.114f));
 
 			dst->data[pos_dst] = gray;
-			dst->data[pos_dst + 1] = gray;
-			dst->data[pos_dst + 2] = gray;
 		}
 	}
 
@@ -398,20 +396,16 @@ int vc_rgb_to_gray(IVC* src, IVC* dst) {
 #define BLUE 2
 
 int vc_gray_to_bin(IVC* src, IVC* dst) {
-	if (src->channels != 3 || dst->channels != 1) return -1;
+	if (src->channels != 1 || dst->channels != 1) return -1;
 
 	for (int y = 0; y < src->height; y++) {
 		for (int x = 0; x < src->width; x++) {
 			int pos_src = y * src->bytesperline + x * src->channels;
 			int pos_dst = y * dst->bytesperline + x * dst->channels;
 
-			unsigned char b = src->data[pos_src];
-			unsigned char g = src->data[pos_src + 1];
-			unsigned char r = src->data[pos_src + 2];
+			unsigned char gray = src->data[pos_src];
 
-			unsigned char gray = (unsigned char)(0.299 * r + 0.587 * g + 0.114 * b);
-
-			dst->data[pos_dst] = (gray >= THRESHOLDING) ? 1 : 0;
+			dst->data[pos_dst] = (unsigned char)(gray >= THRESHOLDING) ? 1 : 0;
 		}
 	}
 	return 0;
@@ -422,12 +416,14 @@ int vc_binary_dilate(IVC* src, IVC* dst, int kernel) {
 
 	memset(dst->data, 0, src->height * src->bytesperline);
 
-	for (int y = kernel; y < src->height - kernel; y++) {
-		for (int x = kernel; x < src->width - kernel; x++) {
+	int offSet = (kernel - 1) / 2;
+
+	for (int y = offSet; y < src->height - offSet; y++) {
+		for (int x = offSet; x < src->width - offSet; x++) {
 			int isWhite = 0;
 
-			for (int kY = -kernel; kY <= kernel && !isWhite; kY++) {
-				for (int kX = -kernel; kX <= kernel; kX++) {
+			for (int kY = -offSet; kY <= offSet && !isWhite; kY++) {
+				for (int kX = -offSet; kX <= offSet; kX++) {
 					int kPos = (y + kY) * src->bytesperline + (x + kX) * src->channels;
 					if (src->data[kPos] == 1) {
 						isWhite = 1;
@@ -450,12 +446,15 @@ int vc_binary_erode(IVC* src, IVC* dst, int kernel) {
 
 	memset(dst->data, 0, src->height * src->bytesperline);
 
-	for (int y = kernel; y < src->height - kernel; y++) {
-		for (int x = kernel; x < src->width - kernel; x++) {
+	int offSet = (kernel - 1) / 2;
+
+
+	for (int y = offSet; y < src->height - offSet; y++) {
+		for (int x = offSet; x < src->width - offSet; x++) {
 			int isWhite = 1;
 
-			for (int kY = -kernel; kY <= kernel && isWhite; kY++) {
-				for (int kX = -kernel; kX <= kernel; kX++) {
+			for (int kY = -offSet; kY <= offSet && isWhite; kY++) {
+				for (int kX = -offSet; kX <= offSet; kX++) {
 					int kPos = (y + kY) * src->bytesperline + (x + kX) * src->channels;
 					if (src->data[kPos] == 0) {
 						isWhite = 0;
@@ -468,7 +467,6 @@ int vc_binary_erode(IVC* src, IVC* dst, int kernel) {
 			dst->data[pos] = isWhite;
 		}
 	}
-
 	return 0;
 }
 
@@ -479,6 +477,7 @@ int vc_opening(IVC* src, IVC* dst, int kernel) {
 	vc_binary_erode(src, temp, kernel);
 	
 	vc_binary_dilate(temp, dst, kernel);
+
 
 	return 0;
 }
@@ -646,49 +645,144 @@ unsigned char min4(unsigned char a, unsigned char b, unsigned char c, unsigned c
 	return (min == 255) ? 0 : -1; // All are 0
 }
 
-
-int vc_binary_blob_labelling(IVC* src, IVC* dst) {
-
-	if (!src || src->channels != 1) return -1;
-
-	int width = src->width;
-	int height = src->height;
-	int image_size = width * height;
-
-	int* label_array = (int*)malloc(image_size * sizeof(int));
-	if (!label_array) return -1;
-
-	memset(label_array, 0, image_size * sizeof(int));
-
-	int label = 1;
-
-	int* label_array = (int*)malloc(image_size * sizeof(int));
-
-
-	for (int y = 1; y < height - 1; y++) {
-		for (int x = 1; x < width - 1; x++) {
-			int pos = y * width + x;
-
-			if (src->data[y * src->bytesperline + x] == 1) { // binary 0 or 1
-				int A = label_array[(y - 1) * width + (x - 1)];
-				int B = label_array[(y - 1) * width + x];
-				int C = label_array[(y - 1) * width + (x + 1)];
-				int D = label_array[y * width + (x - 1)];
-
-				if (A == 0 && B == 0 && C == 0 && D == 0) {
-					label_array[pos] = label;
-					label++;
-				}
-				else {
-					label_array[pos] = min4(A, B, C, D);
-				}
-			}
-		}
-	}
-	int object_count = label - 1;
-
-	printf("Object Count: %d\n", object_count);
-
-	return object_count;
+int find(int* parent, int x) {
+    if (parent[x] != x)
+        parent[x] = find(parent, parent[x]); // Path compression
+    return parent[x];
 }
 
+void union_sets(int* parent, int a, int b) {
+    int rootA = find(parent, a);
+    int rootB = find(parent, b);
+    if (rootA != rootB)
+        parent[rootB] = rootA;
+}
+
+int vc_binary_blob_labelling(IVC* bin, IVC* rgb) {
+    if (bin == NULL || rgb == NULL) return 0;
+    if (bin->width != rgb->width || bin->height != rgb->height) return 0;
+    if (rgb->channels != 3 || bin->channels != 1) return 0;
+
+    int width = bin->width;
+    int height = bin->height;
+    int size = width * height;
+
+    int* labels = (int*)calloc(size, sizeof(int));
+    int* parent = (int*)malloc(sizeof(int) * (size / 2));
+    if (!labels || !parent) return 0;
+
+    int label = 1;
+    for (int i = 0; i < (size / 2); i++) parent[i] = i;
+
+    // First pass - Assign initial labels and record equivalences (4-connectivity)
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            int pos = y * bin->bytesperline + x;
+            int idx = y * width + x;
+
+            if (bin->data[pos] == 0) continue;
+
+            int left = (x > 0) ? labels[idx - 1] : 0;
+            int up   = (y > 0) ? labels[idx - width] : 0;
+
+            if (left == 0 && up == 0) {
+                labels[idx] = label;
+                label++;
+            } else if (left != 0 && up == 0) {
+                labels[idx] = left;
+            } else if (left == 0 && up != 0) {
+                labels[idx] = up;
+            } else {
+                labels[idx] = (left < up) ? left : up;
+                union_sets(parent, left, up);
+            }
+        }
+    }
+
+    // Second pass - Flatten equivalence table
+    for (int i = 0; i < size; i++) {
+        if (labels[i] != 0)
+            labels[i] = find(parent, labels[i]);
+    }
+
+    // Relabeling to sequential labels
+    int* new_labels = (int*)calloc(label, sizeof(int));
+    int new_label = 1;
+
+    for (int i = 0; i < size; i++) {
+        int lbl = labels[i];
+        if (lbl != 0) {
+            if (new_labels[lbl] == 0) new_labels[lbl] = new_label++;
+            labels[i] = new_labels[lbl];
+        }
+    }
+
+    // Prepare bounding boxes
+    int* min_x = (int*)malloc(sizeof(int) * new_label);
+    int* max_x = (int*)malloc(sizeof(int) * new_label);
+    int* min_y = (int*)malloc(sizeof(int) * new_label);
+    int* max_y = (int*)malloc(sizeof(int) * new_label);
+    if (!min_x || !max_x || !min_y || !max_y) return 0;
+
+    for (int i = 0; i < new_label; i++) {
+        min_x[i] = width;  max_x[i] = 0;
+        min_y[i] = height; max_y[i] = 0;
+    }
+
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            int idx = y * width + x;
+            int lbl = labels[idx];
+
+            if (lbl > 0) {
+                if (x < min_x[lbl]) min_x[lbl] = x;
+                if (x > max_x[lbl]) max_x[lbl] = x;
+                if (y < min_y[lbl]) min_y[lbl] = y;
+                if (y > max_y[lbl]) max_y[lbl] = y;
+            }
+        }
+    }
+
+    // Draw boxes on RGB image
+    for (int l = 1; l < new_label; l++) {
+        int w = max_x[l] - min_x[l];
+        int h = max_y[l] - min_y[l];
+
+        if (w < 5 || h < 5) continue; // optional: skip small noise blobs
+
+        for (int x = min_x[l]; x <= max_x[l]; x++) {
+            int top    = min_y[l] * rgb->bytesperline + x * rgb->channels;
+            int bottom = max_y[l] * rgb->bytesperline + x * rgb->channels;
+
+            rgb->data[top + 0] = 255;
+            rgb->data[top + 1] = 255;
+            rgb->data[top + 2] = 255;
+
+            rgb->data[bottom + 0] = 255;
+            rgb->data[bottom + 1] = 255;
+            rgb->data[bottom + 2] = 255;
+        }
+        for (int y = min_y[l]; y <= max_y[l]; y++) {
+            int left  = y * rgb->bytesperline + min_x[l] * rgb->channels;
+            int right = y * rgb->bytesperline + max_x[l] * rgb->channels;
+
+            rgb->data[left + 0] = 255;
+            rgb->data[left + 1] = 255;
+            rgb->data[left + 2] = 255;
+
+            rgb->data[right + 0] = 255;
+            rgb->data[right + 1] = 255;
+            rgb->data[right + 2] = 255;
+        }
+    }
+
+    int object_count = new_label - 1;
+
+    // Cleanup
+    free(labels);
+    free(parent);
+    free(new_labels);
+    free(min_x); free(max_x); free(min_y); free(max_y);
+
+    return object_count;
+}
